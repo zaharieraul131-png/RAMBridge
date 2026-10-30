@@ -29,19 +29,40 @@ jobs:
         with:
           gradle-version: '8.13'
 
-      - name: Configure preinstalled Android SDK
+      - name: Configure Android SDK
         run: |
           echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
           echo "ANDROID_SDK_ROOT=/usr/local/lib/android/sdk" >> $GITHUB_ENV
           echo "/usr/local/lib/android/sdk/platform-tools" >> $GITHUB_PATH
           echo "/usr/local/lib/android/sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
 
-      - name: Accept SDK licenses and install packages
+      - name: Install Android SDK packages
         run: |
           yes | sdkmanager --sdk_root="$ANDROID_HOME" --licenses || true
           sdkmanager --sdk_root="$ANDROID_HOME" \
             "platforms;android-36" \
             "build-tools;36.0.0"
+
+      - name: Configure JVM 17 for all modules
+        run: |
+          for file in shared/build.gradle.kts server/build.gradle.kts client/build.gradle.kts; do
+            cat >> "$file" <<'EOF'
+
+          // RAMBridge: keep Java and Kotlin JVM targets consistent.
+          android {
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+          }
+
+          kotlin {
+              compilerOptions {
+                  jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+              }
+          }
+          EOF
+          done
 
       - name: Build both applications
         run: gradle --no-daemon :server:assembleDebug :client:assembleDebug
